@@ -1,36 +1,146 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Emma's Artist Portfolio
 
-## Getting Started
+A modern, responsive artist portfolio website built with Next.js, TypeScript, Firebase, and Framer Motion. Features an easy-to-use admin interface for content management.
 
-First, run the development server:
+## Features
+
+- **Responsive Design**: Works perfectly on desktop, tablet, and mobile
+- **Admin Interface**: Secret login (triple-click Emma's name) for easy content management
+- **Artwork Gallery**: Masonry-style grid layout with smooth animations
+- **Individual Artwork Pages**: Focused view with title, description, and "more works" section
+- **About Page**: Two-column layout with bio, skills, clients, and contact form
+- **Firebase Integration**: Real-time data sync and secure authentication
+- **Smooth Animations**: Framer Motion for delightful user experience
+
+## Tech Stack
+
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Animations**: Framer Motion
+- **Backend**: Firebase (Authentication, Firestore, Storage)
+- **Deployment**: Vercel
+
+## Setup Instructions
+
+### 1. Clone and Install
+
+```bash
+git clone <repository-url>
+cd emmas-portfolio
+npm install
+```
+
+### 2. Firebase Setup
+
+1. Create a new Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable Authentication (Email/Password)
+3. Create a Firestore database
+4. Enable Storage
+5. Get your Firebase config from Project Settings
+
+### 3. Environment Variables
+
+Create a `.env.local` file in the root directory with your Firebase credentials:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
+
+**Important**: The build will fail without valid Firebase credentials. Make sure to set up Firebase first before building for production.
+
+### 4. Firestore Collections
+
+The app expects these Firestore collections:
+
+#### `/artworks`
+```javascript
+{
+  title: string,
+  description?: string,
+  imageUrl: string,
+  order: number,
+  createdAt: timestamp
+}
+```
+
+#### `/about/content`
+```javascript
+{
+  bio: string,
+  email: string,
+  instagram: string,
+  portraitUrl?: string,
+  skills: [
+    { name: string, percentage: number }
+  ],
+  clients: [string]
+}
+```
+
+### 5. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Note**: The admin functionality requires Firebase setup. Without Firebase credentials, you can still view the public pages, but admin features won't work.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Admin Access
 
-## Learn More
+To access the admin interface:
+1. Click on "Emma" in the header 3 times quickly
+2. Enter the admin email and password
+3. You'll be able to manage artworks and edit the about page
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Vercel (Recommended)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Add your Firebase environment variables in Vercel's dashboard
+4. Deploy!
 
-## Deploy on Vercel
+### Manual Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run build
+npm start
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Customization
+
+### Changing the Artist Name
+
+Update the `artistName` prop in `src/components/Header.tsx`:
+
+```tsx
+<Header artistName="Your Name" />
+```
+
+### Styling
+
+The app uses Tailwind CSS. Key customization points:
+- Colors: Update the color palette in `tailwind.config.ts`
+- Fonts: Modify font imports in `src/app/globals.css`
+- Layout: Adjust spacing and sizing in component files
+
+### Adding New Features
+
+The codebase is well-structured for easy extension:
+- Components are in `src/components/`
+- Pages are in `src/app/`
+- Types are defined in `src/types/index.ts`
+- Firebase utilities are in `src/lib/`
+
+## Support
+
+For questions or issues, please check the documentation or create an issue in the repository.# emmas-art-portfolio
