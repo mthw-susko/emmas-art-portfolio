@@ -79,3 +79,8 @@ export default function AddSkillForm({ onAdd, onCancel }: AddSkillFormProps) {
   );
 }
 
+
+
+
+
+

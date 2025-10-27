@@ -125,7 +125,7 @@ export default function PortraitUpload({ currentPortraitUrl, isAdmin = false }: 
       {isAdmin && (
         <div className="absolute inset-0 rounded-lg flex items-center justify-center pointer-events-none">
           <motion.label
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer pointer-events-auto"
+            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 cursor-pointer pointer-events-auto"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >

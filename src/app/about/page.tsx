@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AboutContent } from '@/types';
@@ -11,6 +12,55 @@ import AddSkillForm from '@/components/AddSkillForm';
 import ContactForm from '@/components/ContactForm';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PortraitUpload from '@/components/PortraitUpload';
+
+// Section wrapper component for admin visibility controls
+const SectionWrapper = ({ 
+  sectionKey, 
+  title, 
+  children,
+  isVisible,
+  user,
+  onToggleVisibility
+}: { 
+  sectionKey: keyof { about: boolean; contact: boolean; skills: boolean; clients: boolean; contactForm: boolean }; 
+  title: string; 
+  children: React.ReactNode;
+  isVisible: boolean;
+  user: User | null;
+  onToggleVisibility: (section: keyof { about: boolean; contact: boolean; skills: boolean; clients: boolean; contactForm: boolean }) => void;
+}) => {
+  // If section is hidden and user is not admin, don't render anything
+  if (!isVisible && !user) {
+    return null;
+  }
+  
+  return (
+    <div className="transition-all duration-300">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold text-blue-500">{title}</h2>
+        {user && (
+          <button
+            onClick={() => onToggleVisibility(sectionKey)}
+            className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
+            title={isVisible ? 'Hide section' : 'Show section'}
+          >
+            {isVisible ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+              </svg>
+            )}
+          </button>
+        )}
+      </div>
+      {isVisible && children}
+    </div>
+  );
+};
 
 export default function AboutPage() {
   const [aboutContent, setAboutContent] = useState<AboutContent | null>(null);
@@ -24,16 +74,33 @@ export default function AboutPage() {
     contactForm: true,
   });
   const { user } = useAuth();
+  
+  // Local state for editing bio and clients
+  const [editingBio, setEditingBio] = useState(false);
+  const [localBio, setLocalBio] = useState('');
+  const [editingClients, setEditingClients] = useState(false);
+  const [localClients, setLocalClients] = useState<string[]>([]);
+  
+  // Track if we're currently saving to prevent snapshot from overriding local state
+  const savingRef = useRef({ bio: false, clients: false });
 
   useEffect(() => {
     const aboutDoc = doc(db, 'about', 'content');
     
     const unsubscribe = onSnapshot(aboutDoc, (doc) => {
       if (doc.exists()) {
-        setAboutContent(doc.data() as AboutContent);
+        const data = doc.data() as AboutContent;
+        // Don't update aboutContent if we're editing bio or clients
+        const isEditing = editingBio || editingClients || savingRef.current.bio || savingRef.current.clients;
+        if (!isEditing) {
+          setAboutContent(data);
+        }
+        // Only update local state if not currently editing or saving
+        if (!editingBio && !savingRef.current.bio) setLocalBio(data.bio);
+        if (!editingClients && !savingRef.current.clients) setLocalClients(data.clients);
       } else {
         // Set default content if no document exists
-        setAboutContent({
+        const defaultContent = {
           bio: "Emma is a freelance artist and designer based in [Location]. She studied design and has been creating beautiful artwork for clients around the world. Her work focuses on [art style/theme] and she loves working with [mediums]. When she's not creating art, you can find her [hobbies/interests].",
           email: "emmafleming@icloud.com",
           instagram: "https://www.instagram.com/emmasartalbum/",
@@ -47,13 +114,16 @@ export default function AboutPage() {
             { name: "Print Design", percentage: 75 },
           ],
           clients: ["Client One", "Client Two", "Client Three", "Client Four"],
-        });
+        };
+        setAboutContent(defaultContent);
+        if (!editingBio) setLocalBio(defaultContent.bio);
+        if (!editingClients) setLocalClients(defaultContent.clients);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [editingBio, editingClients]);
 
 
   const handleSkillUpdate = async (name: string, percentage: number) => {
@@ -77,30 +147,66 @@ export default function AboutPage() {
     }
   };
 
-  const handleBioUpdate = async (newBio: string) => {
-    if (!aboutContent) return;
+  const handleBioChange = (newBio: string) => {
+    setLocalBio(newBio);
+  };
+
+  const handleBioBlur = async () => {
+    if (!aboutContent || localBio === aboutContent.bio) {
+      setEditingBio(false);
+      return;
+    }
     
-    setAboutContent({ ...aboutContent, bio: newBio });
+    setEditingBio(false);
+    savingRef.current.bio = true;
     
     try {
       const aboutDoc = doc(db, 'about', 'content');
-      await updateDoc(aboutDoc, { bio: newBio });
+      await updateDoc(aboutDoc, { bio: localBio });
+      // Update aboutContent after successful save
+      setAboutContent({ ...aboutContent, bio: localBio });
     } catch (error) {
       console.error('Error updating bio:', error);
+      // Revert on error
+      setLocalBio(aboutContent.bio);
+    } finally {
+      savingRef.current.bio = false;
     }
   };
 
-  const handleClientsUpdate = async (newClients: string[]) => {
-    if (!aboutContent) return;
+  const handleBioFocus = () => {
+    setEditingBio(true);
+  };
+
+  const handleClientsChange = (newClients: string[]) => {
+    setLocalClients(newClients);
+  };
+
+  const handleClientsBlur = async () => {
+    if (!aboutContent || JSON.stringify(localClients) === JSON.stringify(aboutContent.clients)) {
+      setEditingClients(false);
+      return;
+    }
     
-    setAboutContent({ ...aboutContent, clients: newClients });
+    setEditingClients(false);
+    savingRef.current.clients = true;
     
     try {
       const aboutDoc = doc(db, 'about', 'content');
-      await updateDoc(aboutDoc, { clients: newClients });
+      await updateDoc(aboutDoc, { clients: localClients });
+      // Update aboutContent after successful save
+      setAboutContent({ ...aboutContent, clients: localClients });
     } catch (error) {
       console.error('Error updating clients:', error);
+      // Revert on error
+      setLocalClients(aboutContent.clients);
+    } finally {
+      savingRef.current.clients = false;
     }
+  };
+
+  const handleClientsFocus = () => {
+    setEditingClients(true);
   };
 
   const handleAddSkill = async (name: string, percentage: number) => {
@@ -159,51 +265,6 @@ export default function AboutPage() {
     }));
   };
 
-  // Section wrapper component for admin visibility controls
-  const SectionWrapper = ({ 
-    sectionKey, 
-    title, 
-    children 
-  }: { 
-    sectionKey: keyof typeof sectionVisibility; 
-    title: string; 
-    children: React.ReactNode; 
-  }) => {
-    const isVisible = sectionVisibility[sectionKey];
-    
-    // If section is hidden and user is not admin, don't render anything
-    if (!isVisible && !user) {
-      return null;
-    }
-    
-    return (
-      <div className="transition-all duration-300">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-blue-500">{title}</h2>
-          {user && (
-            <button
-              onClick={() => toggleSectionVisibility(sectionKey)}
-              className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
-              title={isVisible ? 'Hide section' : 'Show section'}
-            >
-              {isVisible ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                </svg>
-              )}
-            </button>
-          )}
-        </div>
-        {isVisible && children}
-      </div>
-    );
-  };
-
   if (loading) {
     return <LoadingSpinner text="Loading about page..." />;
   }
@@ -240,11 +301,13 @@ export default function AboutPage() {
           className="order-2 lg:order-2 space-y-8"
         >
           {/* About Section */}
-          <SectionWrapper sectionKey="about" title="ABOUT">
+          <SectionWrapper sectionKey="about" title="ABOUT" isVisible={sectionVisibility.about} user={user} onToggleVisibility={toggleSectionVisibility}>
             {user ? (
               <textarea
-                value={aboutContent.bio}
-                onChange={(e) => handleBioUpdate(e.target.value)}
+                value={localBio}
+                onChange={(e) => handleBioChange(e.target.value)}
+                onFocus={handleBioFocus}
+                onBlur={handleBioBlur}
                 className="w-full h-32 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-600"
                 placeholder="Enter your bio..."
               />
@@ -256,7 +319,7 @@ export default function AboutPage() {
           </SectionWrapper>
 
           {/* Contact Info */}
-          <SectionWrapper sectionKey="contact" title="CONTACT">
+          <SectionWrapper sectionKey="contact" title="CONTACT" isVisible={sectionVisibility.contact} user={user} onToggleVisibility={toggleSectionVisibility}>
             <div className="flex items-center space-x-4">
               <a
                 href={`mailto:${aboutContent.email}`}
@@ -278,7 +341,7 @@ export default function AboutPage() {
           </SectionWrapper>
 
           {/* Skills Section */}
-          <SectionWrapper sectionKey="skills" title="SKILLS + EXPERIENCE">
+          <SectionWrapper sectionKey="skills" title="SKILLS + EXPERIENCE" isVisible={sectionVisibility.skills} user={user} onToggleVisibility={toggleSectionVisibility}>
             <div className="space-y-2">
               {user && (
                 <div className="flex justify-end mb-4">
@@ -310,11 +373,13 @@ export default function AboutPage() {
           </SectionWrapper>
 
           {/* Clients Section */}
-          <SectionWrapper sectionKey="clients" title="SELECTED CLIENTS">
+          <SectionWrapper sectionKey="clients" title="SELECTED CLIENTS" isVisible={sectionVisibility.clients} user={user} onToggleVisibility={toggleSectionVisibility}>
             {user ? (
               <textarea
-                value={aboutContent.clients.join(' / ')}
-                onChange={(e) => handleClientsUpdate(e.target.value.split(' / ').filter(c => c.trim()))}
+                value={localClients.join(' / ')}
+                onChange={(e) => handleClientsChange(e.target.value.split(' / ').filter(c => c.trim()))}
+                onFocus={handleClientsFocus}
+                onBlur={handleClientsBlur}
                 className="w-full h-20 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-600"
                 placeholder="Client One / Client Two / Client Three"
               />
@@ -326,7 +391,7 @@ export default function AboutPage() {
           </SectionWrapper>
 
           {/* Contact Form */}
-          <SectionWrapper sectionKey="contactForm" title="CONTACT ME">
+          <SectionWrapper sectionKey="contactForm" title="CONTACT ME" isVisible={sectionVisibility.contactForm} user={user} onToggleVisibility={toggleSectionVisibility}>
             <ContactForm />
           </SectionWrapper>
         </motion.div>
