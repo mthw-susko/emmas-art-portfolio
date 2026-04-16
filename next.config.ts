@@ -6,8 +6,16 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
-    // Migrate away from deprecated `images.domains` if desired later
-    domains: ['firebasestorage.googleapis.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.firebasestorage.app',
+      },
+    ],
   },
 };
 

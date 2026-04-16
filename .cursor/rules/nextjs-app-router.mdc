@@ -1,0 +1,14 @@
+---
+description: Next.js 15 App Router page and API route patterns
+globs: src/app/**
+alwaysApply: false
+---
+
+# Next.js App Router Patterns
+
+- Pages are `'use client'` with default exports
+- Dynamic routes use `use(params)` to unwrap the params Promise (Next.js 15 pattern, see `src/app/artwork/[id]/page.tsx`)
+- API routes export named HTTP method handlers: `export async function POST(request: NextRequest)`
+- Root layout in `src/app/layout.tsx` imports `Header` and `globals.css`
+- Use `next/image` with `firebasestorage.googleapis.com` in allowed domains (`next.config.ts`)
+- Loading states: use `LoadingSpinner` component while data fetches

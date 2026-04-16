@@ -1,0 +1,15 @@
+---
+paths:
+  - src/components/**
+---
+
+# Component Conventions
+
+- All components use `'use client'` directive
+- Animations: wrap in `motion.div` with `initial={{ opacity: 0 }}` and `animate={{ opacity: 1 }}` pattern
+- Admin-conditional UI: accept `isAdmin` boolean prop, conditionally render edit/delete controls
+- Forms use `react-hook-form` (see `ContactForm.tsx`) or controlled state with `useState`
+- Use `next/image` `Image` component for all images, not `<img>`
+- Import types from `@/types` (e.g., `Artwork`, `AboutContent`, `Skill`)
+- Import Firebase utilities from `@/lib/firebase`, auth hook from `@/lib/hooks/useAuth`
+- Tailwind classes use project custom colors: `text-gray-600`, `bg-blue-500`, `border-gray-300`
