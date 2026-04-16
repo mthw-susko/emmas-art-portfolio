@@ -33,7 +33,7 @@ export default function RootLayout({
           {children}
         </main>
         <footer className="text-center py-8 text-blue-500 text-sm">
-          ALL ARTWORK AND PHOTOGRAPHS © EMMA 2024-2025
+          ALL ARTWORK AND PHOTOGRAPHS © EMMA 2024-{new Date().getFullYear()}
         </footer>
       </body>
     </html>
